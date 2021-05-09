@@ -22,8 +22,7 @@ public class BoardController : MonoBehaviour
     public int player2X, player2Y;
     public GameObject player2Pfb;
 
-    //Collectables List
-    public GameObject[] collectables;
+    
 
     //Player1
     GameObject player1;
@@ -34,8 +33,8 @@ public class BoardController : MonoBehaviour
     //Player2
     GameObject player2;
     int player2Health;
-    int player2Attack;
-    int player2Dices;
+    int player2Attack = 2;
+    int player2Dices = 1;
 
     int activePlayerMoves = 3;
 
@@ -46,18 +45,13 @@ public class BoardController : MonoBehaviour
     //false = Player 1 Turn | true = Player 2 Turn
     bool turn = false;
 
-
-
     void Start()
     {
         boardCreator = gameObject.GetComponent<BoardCreator>();
         tileMap = new int[tileSizeX, tileSizeY];
-        boardCreator.CreateBoard(tileSizeX, tileSizeY);
         PlayerAllocation();
-
-        //Check
-        CollectablesAllocation();
-        Debug.Log(PrintMap());
+        tileMap = boardCreator.CreateBoard(tileMap, player1.transform, player2.transform);
+        //Debug.Log(PrintMap(tileMap));
         CheckPlayerTurn();
     }
 
@@ -71,22 +65,32 @@ public class BoardController : MonoBehaviour
             {
                 if (raycastHit.transform.CompareTag("PossiblePosition"))
                 {
-                    Transform actualPosition = ActivePlayer().transform;
+                    Transform actualPosition = ActivePlayerGmo().transform;
                     Transform intentPosition = raycastHit.transform;
-  
+                    CollectItem((int) intentPosition.position.z, (int) intentPosition.position.x);
                     BoardSetValue((int) raycastHit.transform.position.z, (int) intentPosition.position.x, tileMap[(int) actualPosition.position.z, (int) actualPosition.position.x]);
                     BoardSetValue((int) actualPosition.position.z, (int) actualPosition.position.x, 0);
-                    ActivePlayer().transform.position = raycastHit.transform.position;
-                    Debug.Log(PrintMap());
+                    ActivePlayerGmo().transform.position = raycastHit.transform.position;
                     activePlayerMoves--;
                     CheckPlayerTurn();
+
+                    Ray collectableRay = new Ray(ActivePlayerGmo().transform.position, Vector3.up);
+                    RaycastHit collectableHit;
+                    if (Physics.Raycast(collectableRay, out collectableHit))
+                    {
+                        
+                        if (collectableHit.transform.CompareTag("Button"))
+                        {
+                            Destroy(collectableHit.transform.parent.gameObject);
+                        }
+                    }
                 }
             }
         }
     }
-
     void PossibleMoviments(int posX, int posY)
     {
+        Debug.Log("Available Moves: " + activePlayerMoves);
         foreach(GameObject gameObject in possibleList)
         {
             Destroy(gameObject);
@@ -145,24 +149,65 @@ public class BoardController : MonoBehaviour
         }
     }
 
+    void CollectItem(int x, int y)
+    {
+        int ItemId = tileMap[x, y];
+        if (ItemId == 3)
+        {
+            activePlayerMoves++;
+        }
+        else
+        {
+            if (turn)
+            {
+                switch (ItemId)
+                {
+                    case 4:
+                        player2Attack++;
+                        break;
+                    case 5:
+                        player2Health++;
+                        break;
+                    case 6:
+                        player2Dices++;
+                        break;
+                }
+            } else
+            {
+                switch (ItemId)
+                {
+                    case 4:
+                        player1Attack++;
+                        break;
+                    case 5:
+                        player1Health++;
+                        break;
+                    case 6:
+                        player1Dices++;
+                        break;
+                }
+            }
+        }
+    }
+
     void BoardSetValue(int x, int y, int value)
     {
         tileMap[x, y] = value;
     }
 
-    string PrintMap()
+    string PrintMap(int[,] map)
     {
 
-        string map = "\n";
-        for (int x = 0; x < tileSizeX; x++)
+        string mapPrint = "\n";
+        for (int x = 0; x < map.GetLength(0); x++)
         {
-            for(int y = 0; y <tileSizeY; y++ )
+            for(int y = 0; y < map.GetLength(1); y++ )
             {
-                map += ("[" + tileMap[x,y] + "]");
+                mapPrint += ("[" + map[x,y] + "]");
             }
-            map += ("\n");
+            mapPrint += ("\n");
         }
-        return map;
+        return mapPrint;
     }
 
     void PlayerAllocation()
@@ -174,25 +219,9 @@ public class BoardController : MonoBehaviour
         //Player2 Allocation
         player2 = Instantiate(player2Pfb, new Vector3(player2Y, 0f, player2X), Quaternion.Euler(0, 180f, 0));
         BoardSetValue(player2X, player2Y, 2);
-    }
+    }    
 
-    void CollectablesAllocation()
-    {
-        for (int x = 0; x < tileSizeX; x++)
-        {
-            for (int y = 0; y < tileSizeY; y++)
-            {
-                if(tileMap[x,y] == 0)
-                {
-                    int randomCollectable = Random.Range(0, collectables.Length);
-                    GameObject createdCollectable = Instantiate(collectables[randomCollectable], new Vector3(y, 0f, x), Quaternion.identity);
-                    BoardSetValue(x,y,randomCollectable+3);
-                }
-            }
-        }
-    }
-
-    GameObject ActivePlayer()
+    GameObject ActivePlayerGmo()
     {
         if (turn)
         {
@@ -204,7 +233,6 @@ public class BoardController : MonoBehaviour
         }
     }
 
-
     void CheckPlayerTurn()
     {
 
@@ -214,7 +242,15 @@ public class BoardController : MonoBehaviour
             activePlayerMoves = 3;
             
         }
-        Transform playerPosition = ActivePlayer().transform;
+        Transform playerPosition = ActivePlayerGmo().transform;
         PossibleMoviments((int) playerPosition.position.z, (int)playerPosition.position.x);
+        if(turn)
+        
+        Debug.Log("Player2: \n Attack Points: " + player2Attack + "\n Health Points: " + player2Health + "\n Dices: " + player2Dices);
+
+        else
+            Debug.Log("Player1: \n Attack Points: " + player1Attack + "\n Health Points: " + player1Health + "\n Dices: " + player1Dices);
     }
+
+
 }
