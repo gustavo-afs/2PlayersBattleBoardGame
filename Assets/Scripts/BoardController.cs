@@ -22,20 +22,21 @@ public class BoardController : MonoBehaviour
     public int player2X, player2Y;
     public GameObject player2Pfb;
 
-    
-
-    //Player1
+    //Player1 Stats
     GameObject player1;
     int player1Health;
     int player1Attack;
     int player1Dices;
 
-    //Player2
+    //Player2 Stats
     GameObject player2;
     int player2Health;
     int player2Attack = 2;
     int player2Dices = 1;
 
+    Transform activePlayerPosition;
+
+    //Moviments left
     int activePlayerMoves = 3;
 
     //Possible Moviment HighLight
@@ -45,58 +46,137 @@ public class BoardController : MonoBehaviour
     //false = Player 1 Turn | true = Player 2 Turn
     bool turn = false;
 
+    //Count of collectables
+    int collectablesMax, collectablesQnty;
+    
+    //Battle Variables
+    bool battleRequested = false;
+    public bool isBattleCompleted = true;
+    public bool winner;
+    public BattleSystem battleSystem;
+
     void Start()
     {
+        collectablesQnty = (tileSizeX * tileSizeY) - 2;
+        collectablesMax = collectablesQnty;
+
         boardCreator = gameObject.GetComponent<BoardCreator>();
         tileMap = new int[tileSizeX, tileSizeY];
         PlayerAllocation();
         tileMap = boardCreator.CreateBoard(tileMap, player1.transform, player2.transform);
-        //Debug.Log(PrintMap(tileMap));
+        Debug.Log(PrintMap(tileMap));
         CheckPlayerTurn();
     }
 
     private void Update()
     {
-        if (Input.GetMouseButtonDown(0))
+        Debug.Log("battleRequested: " + battleRequested + " | isBattleCompleted: " + isBattleCompleted);
+        if (!battleRequested & isBattleCompleted)
         {
-            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-            RaycastHit raycastHit;
-            if (Physics.Raycast(ray, out raycastHit))
+            if (Input.GetMouseButtonDown(0))
             {
-                if (raycastHit.transform.CompareTag("PossiblePosition"))
+                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+                RaycastHit raycastHit;
+                if (Physics.Raycast(ray, out raycastHit))
                 {
-                    Transform actualPosition = ActivePlayerGmo().transform;
-                    Transform intentPosition = raycastHit.transform;
-                    CollectItem((int) intentPosition.position.z, (int) intentPosition.position.x);
-                    BoardSetValue((int) raycastHit.transform.position.z, (int) intentPosition.position.x, tileMap[(int) actualPosition.position.z, (int) actualPosition.position.x]);
-                    BoardSetValue((int) actualPosition.position.z, (int) actualPosition.position.x, 0);
-                    ActivePlayerGmo().transform.position = raycastHit.transform.position;
-                    activePlayerMoves--;
-                    CheckPlayerTurn();
-
-                    Ray collectableRay = new Ray(ActivePlayerGmo().transform.position, Vector3.up);
-                    RaycastHit collectableHit;
-                    if (Physics.Raycast(collectableRay, out collectableHit))
+                    if (raycastHit.transform.CompareTag("PossiblePosition"))
                     {
-                        
-                        if (collectableHit.transform.CompareTag("Button"))
+                        Transform actualPosition = ActivePlayerGmo().transform;
+                        Transform intentPosition = raycastHit.transform;
+                        CollectItem((int)intentPosition.position.z, (int)intentPosition.position.x);
+                        BoardSetValue((int)raycastHit.transform.position.z, (int)intentPosition.position.x, tileMap[(int)actualPosition.position.z, (int)actualPosition.position.x]);
+                        BoardSetValue((int)actualPosition.position.z, (int)actualPosition.position.x, 0);
+                        ActivePlayerGmo().transform.position = raycastHit.transform.position;
+                        Ray collectableRay = new Ray(ActivePlayerGmo().transform.position, Vector3.up);
+                        RaycastHit collectableHit;
+                        if (Physics.Raycast(collectableRay, out collectableHit))
                         {
-                            Destroy(collectableHit.transform.parent.gameObject);
+
+                            if (collectableHit.transform.CompareTag("Button"))
+                            {
+                                Destroy(collectableHit.transform.parent.gameObject);
+                                collectablesQnty--;
+                            }
                         }
+                        CheckCollectables();
+                        activePlayerMoves--;
+                        if(!CheckBattle((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x))
+                        {
+                            CheckPlayerTurn();
+                        }
+                        
                     }
                 }
             }
+        } else if(battleRequested & isBattleCompleted)
+        {
+            Debug.Log("The Battle Winner is: " + winner);
+            battleRequested = false;
+            ChangeVisibility(true);
+            CheckPlayerTurn();
         }
     }
-    void PossibleMoviments(int posX, int posY)
+    void RequestBattle()
     {
-        Debug.Log("Available Moves: " + activePlayerMoves);
-        foreach(GameObject gameObject in possibleList)
+        ChangeVisibility(false);
+        battleRequested = true;
+        ClearPossibleMovesEffects();
+        StartCoroutine(battleSystem.StartBattle(true, true, false));
+    }
+
+    void ChangeVisibility(bool value)
+    {
+        isBattleCompleted = value;
+        player1.SetActive(value);
+        player2.SetActive(value);
+        transform.GetChild(0).gameObject.SetActive(value);
+    }
+
+    bool CheckBattle(int posX, int posY)
+    {
+        Debug.Log("Checking Battle: PosX: " + posX+ " | PosY: " + posY);
+        //Front Position Verification
+        if (posX + 1 < tileSizeX)
         {
-            Destroy(gameObject);
+            
+            if ((tileMap[posX + 1, posY] == 1 || tileMap[posX + 1, posY] == 2))
+            {
+                RequestBattle();
+                return true;
+            }
         }
 
-        possibleList.Clear();
+        if (posX - 1 >= 0)
+        {
+            Debug.Log("Verify: tileMap[" + (posX - 1) + "][" + posY + "]: " + tileMap[posX - 1, posY]);
+            if ((tileMap[posX - 1, posY] == 1 || tileMap[posX - 1, posY] == 2))
+            {
+                RequestBattle();
+                return true;
+            }
+        }
+        if (posY + 1 < tileSizeY)
+        {
+            if (tileMap[posX, posY + 1] == 1 || tileMap[posX, posY + 1] == 2)
+            {
+                RequestBattle();
+                return true;
+            }
+        }
+        if (posY - 1 >= 0)
+        {
+            if ((tileMap[posX, posY - 1] == 1 || tileMap[posX, posY - 1] == 2))
+            {
+                RequestBattle();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void PossibleMoviments(int posX, int posY)
+    {
+        ClearPossibleMovesEffects();
 
         //Debug.Log("Actual Position tilemap: tileMap [" + posX + "][" + posY + "]: " + tileMap[posX, posY]);
 
@@ -235,22 +315,33 @@ public class BoardController : MonoBehaviour
 
     void CheckPlayerTurn()
     {
-
         if(activePlayerMoves == 0)
         {
             turn = !turn;
             activePlayerMoves = 3;
             
         }
-        Transform playerPosition = ActivePlayerGmo().transform;
-        PossibleMoviments((int) playerPosition.position.z, (int)playerPosition.position.x);
-        if(turn)
-        
-        Debug.Log("Player2: \n Attack Points: " + player2Attack + "\n Health Points: " + player2Health + "\n Dices: " + player2Dices);
-
-        else
-            Debug.Log("Player1: \n Attack Points: " + player1Attack + "\n Health Points: " + player1Health + "\n Dices: " + player1Dices);
+        activePlayerPosition = ActivePlayerGmo().transform;
+        PossibleMoviments((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x);
     }
 
+    void CheckCollectables()
+    {
+        
+        if(collectablesQnty < collectablesMax*0.1)
+        {
+            tileMap = boardCreator.CollectablesAllocation(tileMap);
+            collectablesQnty = collectablesMax;
+        }
+    }
 
+    void ClearPossibleMovesEffects()
+    {
+        foreach (GameObject gameObject in possibleList)
+        {
+            Destroy(gameObject);
+        }
+
+        possibleList.Clear();
+    }
 }
