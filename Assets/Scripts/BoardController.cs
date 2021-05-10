@@ -25,14 +25,14 @@ public class BoardController : MonoBehaviour
 
     //Player1 Stats
     GameObject player1;
-    int player1Health = 2;
-    int player1Attack = 3;
+    int player1Health = 20;
+    int player1Attack = 5;
     int player1Dices = 0;
 
     //Player2 Stats
     GameObject player2;
-    int player2Health = 2;
-    int player2Attack = 3;
+    int player2Health = 20;
+    int player2Attack = 5;
     int player2Dices = 0;
 
     Transform activePlayerPosition;
@@ -65,6 +65,13 @@ public class BoardController : MonoBehaviour
     public Text p2Dice;
     public Text movesLeft;
     public Text victoryText;
+    public GameObject victoryPanel;
+    public AudioSource sfxSource;
+    public AudioClip victorySound;
+
+    //Camera
+    public GameObject mainCamera;
+    CameraController mainCameraController;
 
     void UpdateUIStats()
     {
@@ -79,6 +86,10 @@ public class BoardController : MonoBehaviour
 
     void Start()
     {
+        mainCameraController = mainCamera.GetComponent<CameraController>();
+
+        victoryPanel.SetActive(false);
+        sfxSource = GetComponent<AudioSource>();
         collectablesQnty = (tileSizeX * tileSizeY) - 2;
         collectablesMax = collectablesQnty;
         boardCreator = gameObject.GetComponent<BoardCreator>();
@@ -111,7 +122,6 @@ public class BoardController : MonoBehaviour
                         RaycastHit collectableHit;
                         if (Physics.Raycast(collectableRay, out collectableHit))
                         {
-
                             if (collectableHit.transform.CompareTag("Button"))
                             {
                                 Destroy(collectableHit.transform.parent.gameObject);
@@ -124,13 +134,13 @@ public class BoardController : MonoBehaviour
                         if (!CheckBattle((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x))
                         {
                             CheckPlayerTurn();
-                        }
-                        
+                        }  
                     }
                 }
             }
         } else if(battleRequested & isBattleCompleted)
         {
+            battleRequested = false;
             if (winner)
             {
                 player1Health = Mathf.Max(0, player1Health - player2Attack);
@@ -146,20 +156,26 @@ public class BoardController : MonoBehaviour
 
             if (player2Health == 0)
             {
-                victoryText.text = "Player1 Wins!";
+                DisplayVictory("Player1 Wins!");
                 return;
             }
 
             if (player1Health == 0)
-            {
-                victoryText.text = "Player2 Wins!";
+            {    
+                DisplayVictory("Player2 Wins!");
                 return;
             }
-
-            battleRequested = false;
             ChangeVisibility(true);
             CheckPlayerTurn();
         }
+    }
+
+    void DisplayVictory(string displayText)
+    {
+        sfxSource.clip = victorySound;
+        sfxSource.Play();
+        victoryPanel.SetActive(true);
+        victoryText.text = displayText;
     }
 
     void RequestBattle()
@@ -233,15 +249,11 @@ public class BoardController : MonoBehaviour
     void PossibleMoviments(int posX, int posY)
     {
         ClearPossibleMovesEffects();
-
-        //Debug.Log("Actual Position tilemap: tileMap [" + posX + "][" + posY + "]: " + tileMap[posX, posY]);
-
         //Front Position Verification
         posX = posX + 1;
         
         if (posX< tileSizeX)
         {
-            //Debug.Log("Front Verify tilemap: tileMap [" + posX + "][" + posY + "]: " + tileMap[posX, posY]);
             if ((tileMap[posX, posY] != 1 & tileMap[posX, posY] != 2))
             {
                 possibleList.Add(Instantiate(highLightMovementPfb, new Vector3(posY, 0f, posX), Quaternion.identity));
@@ -253,7 +265,6 @@ public class BoardController : MonoBehaviour
         
         if (posX >= 0)
         {
-            //Debug.Log("Back Verify tilemap: tileMap [" + posX + "][" + posY + "]: " + tileMap[posX, posY]);
             if ((tileMap[posX, posY] != 1 & tileMap[posX, posY] != 2))
             {
                 possibleList.Add(Instantiate(highLightMovementPfb, new Vector3(posY, 0f, posX), Quaternion.identity));
@@ -266,7 +277,6 @@ public class BoardController : MonoBehaviour
         
         if (posY < tileSizeY )
         {
-            //Debug.Log("Right Verify tilemap: tileMap [" + posX + "][" + posY + "]: " + tileMap[posX, posY]);
             if (tileMap[posX, posY] != 1 & tileMap[posX, posY] != 2)
             {
                 possibleList.Add(Instantiate(highLightMovementPfb, new Vector3(posY, 0f, posX), Quaternion.identity));
@@ -277,7 +287,6 @@ public class BoardController : MonoBehaviour
         
         if (posY>= 0)
         {
-            //Debug.Log("Left Verify tilemap: tileMap [" + posX + "][" + posY + "]: " + tileMap[posX, posY]);
             if ((tileMap[posX, posY] != 1 & tileMap[posX, posY] != 2))
             {
                 possibleList.Add(Instantiate(highLightMovementPfb, new Vector3(posY, 0f, posX), Quaternion.identity));
@@ -355,6 +364,7 @@ public class BoardController : MonoBehaviour
         //Player2 Allocation
         player2 = Instantiate(player2Pfb, new Vector3(player2Y, 0f, player2X), Quaternion.Euler(0, 180f, 0));
         BoardSetValue(player2X, player2Y, 2);
+        mainCameraController.FollowPlayer(ActivePlayerGmo());
     }    
 
     GameObject ActivePlayerGmo()
@@ -373,11 +383,15 @@ public class BoardController : MonoBehaviour
     {
         if(activePlayerMoves == 0)
         {
+            
             turn = !turn;
             activePlayerMoves = 3;
-            
         }
+
+        player1Dices = 0;
+        player2Dices = 0;
         activePlayerPosition = ActivePlayerGmo().transform;
+        mainCameraController.FollowPlayer(ActivePlayerGmo());
         PossibleMoviments((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x);
         UpdateUIStats();
     }

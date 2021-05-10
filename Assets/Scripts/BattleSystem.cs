@@ -18,8 +18,6 @@ public class BattleSystem : MonoBehaviour
 
     List<Vector3> DiceRotation = new List<Vector3>();
 
-
-
     private void Awake()
     {
         //Dice on Rotation 1
