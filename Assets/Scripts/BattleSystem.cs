@@ -18,6 +18,8 @@ public class BattleSystem : MonoBehaviour
 
     List<Vector3> DiceRotation = new List<Vector3>();
 
+
+
     private void Awake()
     {
         //Dice on Rotation 1
@@ -75,9 +77,9 @@ public class BattleSystem : MonoBehaviour
         {
             player2DiceResults[3] = 0;
         }
-
+        yield return new WaitForSeconds(5);
         SortingArrays();
-        yield return new WaitForSeconds(4);
+        yield return new WaitForSeconds(6);
         player1Dices[3].SetActive(false);
         player2Dices[3].SetActive(false);
         for (int i = 0; i < 3; i++)
@@ -110,7 +112,6 @@ public class BattleSystem : MonoBehaviour
             boardController.winner = true;
         }
         yield return new WaitForSeconds(3);
-        Debug.Log("Battle Completed");
         boardController.isBattleCompleted = true;
         for (int i = 0; i < 3; i++)
         {

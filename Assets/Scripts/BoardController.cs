@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class BoardController : MonoBehaviour
 {
@@ -24,15 +25,15 @@ public class BoardController : MonoBehaviour
 
     //Player1 Stats
     GameObject player1;
-    int player1Health;
-    int player1Attack;
-    int player1Dices;
+    int player1Health = 2;
+    int player1Attack = 3;
+    int player1Dices = 0;
 
     //Player2 Stats
     GameObject player2;
-    int player2Health;
-    int player2Attack = 2;
-    int player2Dices = 1;
+    int player2Health = 2;
+    int player2Attack = 3;
+    int player2Dices = 0;
 
     Transform activePlayerPosition;
 
@@ -55,11 +56,31 @@ public class BoardController : MonoBehaviour
     public bool winner;
     public BattleSystem battleSystem;
 
+    //UI Variables
+    public Text p1Hp;
+    public Text p2Hp;
+    public Text p1Atk;
+    public Text p2Atk;
+    public Text p1Dice;
+    public Text p2Dice;
+    public Text movesLeft;
+    public Text victoryText;
+
+    void UpdateUIStats()
+    {
+        p1Hp.text   = player1Health.ToString();
+        p2Hp.text   = player2Health.ToString();
+        p1Dice.text = player1Dices.ToString();
+        p2Dice.text = player2Dices.ToString();
+        p1Atk.text  = player1Attack.ToString();
+        p2Atk.text  = player2Attack.ToString();
+        movesLeft.text = activePlayerMoves.ToString();
+    }
+
     void Start()
     {
         collectablesQnty = (tileSizeX * tileSizeY) - 2;
         collectablesMax = collectablesQnty;
-
         boardCreator = gameObject.GetComponent<BoardCreator>();
         tileMap = new int[tileSizeX, tileSizeY];
         PlayerAllocation();
@@ -70,7 +91,6 @@ public class BoardController : MonoBehaviour
 
     private void Update()
     {
-        Debug.Log("battleRequested: " + battleRequested + " | isBattleCompleted: " + isBattleCompleted);
         if (!battleRequested & isBattleCompleted)
         {
             if (Input.GetMouseButtonDown(0))
@@ -100,7 +120,8 @@ public class BoardController : MonoBehaviour
                         }
                         CheckCollectables();
                         activePlayerMoves--;
-                        if(!CheckBattle((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x))
+                        UpdateUIStats();
+                        if (!CheckBattle((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x))
                         {
                             CheckPlayerTurn();
                         }
@@ -110,18 +131,55 @@ public class BoardController : MonoBehaviour
             }
         } else if(battleRequested & isBattleCompleted)
         {
-            Debug.Log("The Battle Winner is: " + winner);
+            if (winner)
+            {
+                player1Health = Mathf.Max(0, player1Health - player2Attack);
+                player2Attack = 3;
+            }
+            else
+            {
+                player2Health = Mathf.Max(0, player2Health - player1Attack);
+                player1Attack = 3;
+            }
+
+            UpdateUIStats();
+
+            if (player2Health == 0)
+            {
+                victoryText.text = "Player1 Wins!";
+                return;
+            }
+
+            if (player1Health == 0)
+            {
+                victoryText.text = "Player2 Wins!";
+                return;
+            }
+
             battleRequested = false;
             ChangeVisibility(true);
             CheckPlayerTurn();
         }
     }
+
     void RequestBattle()
     {
+        bool p1 = false, p2 = false;
+        if(player1Dices > 0)
+        {
+            p1 = true;
+            player1Dices--;
+        }
+        if (player2Dices > 0)
+        {
+            p2 = true;
+            player2Dices--;
+        }
+
         ChangeVisibility(false);
         battleRequested = true;
         ClearPossibleMovesEffects();
-        StartCoroutine(battleSystem.StartBattle(true, true, false));
+        StartCoroutine(battleSystem.StartBattle(p1, p2, turn));
     }
 
     void ChangeVisibility(bool value)
@@ -134,7 +192,6 @@ public class BoardController : MonoBehaviour
 
     bool CheckBattle(int posX, int posY)
     {
-        Debug.Log("Checking Battle: PosX: " + posX+ " | PosY: " + posY);
         //Front Position Verification
         if (posX + 1 < tileSizeX)
         {
@@ -148,7 +205,6 @@ public class BoardController : MonoBehaviour
 
         if (posX - 1 >= 0)
         {
-            Debug.Log("Verify: tileMap[" + (posX - 1) + "][" + posY + "]: " + tileMap[posX - 1, posY]);
             if ((tileMap[posX - 1, posY] == 1 || tileMap[posX - 1, posY] == 2))
             {
                 RequestBattle();
@@ -323,6 +379,7 @@ public class BoardController : MonoBehaviour
         }
         activePlayerPosition = ActivePlayerGmo().transform;
         PossibleMoviments((int)activePlayerPosition.position.z, (int)activePlayerPosition.position.x);
+        UpdateUIStats();
     }
 
     void CheckCollectables()
@@ -344,4 +401,6 @@ public class BoardController : MonoBehaviour
 
         possibleList.Clear();
     }
+
+
 }
